@@ -11,6 +11,19 @@ The no-secret proof now targets the legacy GitHub Models endpoint:
 
 A local authenticated Pi-shaped streaming/tool request returned HTTP 200, issued the expected tool call, and resolved the model to `gpt-4.1-mini-2025-04-14`. A real base-Pi fixture run through this provider also exited successfully, passed all five evaluator tests, and recorded the same resolved model. The newer `models.github.ai` path remains an optional future mode requiring organization enablement or an explicit key.
 
+## Run 29785085292 — complete provenance path, invalid handoff result
+
+Hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29785085292>
+
+The workflow completed successfully through reduced-report attestation, and the downloaded report independently verified with `gh attestation verify`. Both cells used Pi `0.80.10` and resolved `gpt-4.1-mini-2025-04-14`.
+
+The normalized report marked both cells invalid instead of issuing false scores. Two candidate-handoff bugs were preserved as infrastructure evidence:
+
+- `git -C` resolved the relative patch path inside the scoring worktree, so no candidate patch was applied;
+- a `jq select()` expression emitted an empty execution metadata document when no prior infrastructure error existed.
+
+The workflow now applies an absolute candidate-patch path and always emits explicit `agent_status` plus nullable `infrastructure_error`. Local checks reproduce the candidate capture/apply handoff.
+
 ## Run 29784881944 — legacy inference and cell attestations
 
 Hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29784881944>
