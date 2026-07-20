@@ -11,6 +11,21 @@ The no-secret proof now targets the legacy GitHub Models endpoint:
 
 A local authenticated Pi-shaped streaming/tool request returned HTTP 200, issued the expected tool call, and resolved the model to `gpt-4.1-mini-2025-04-14`. A real base-Pi fixture run through this provider also exited successfully, passed all five evaluator tests, and recorded the same resolved model. The newer `models.github.ai` path remains an optional future mode requiring organization enablement or an explicit key.
 
+## Run 29784881944 — legacy inference and cell attestations
+
+Hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29784881944>
+
+Validated successfully:
+
+- legacy endpoint preflight with ephemeral `GITHUB_TOKEN` and `models: read`;
+- Outfitter+Pi and base-Pi agent cells;
+- credentialless, networkless container scoring;
+- bundle integrity validation;
+- both custom cell attestations;
+- online verification of both cell attestations before reduction.
+
+Reduction failed closed on a real comparison confound: Outfitter resolved Pi `0.80.10`, while base Pi was separately pinned to `0.80.9`. The base cell now installs the same pinned Outfitter package and directly executes its nested Pi dependency. The parity gate remains strict.
+
 ## Run 29783607320 — organization-aware endpoint policy gate
 
 First hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29783607320>
