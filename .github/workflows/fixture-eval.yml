@@ -19,7 +19,6 @@ env:
   PROVIDER: github-models-legacy
   MODEL_ENDPOINT: https://models.inference.ai.azure.com/chat/completions
   OUTFITTER_VERSION: 0.10.0
-  PI_VERSION: 0.80.9
   EVALUATOR_IMAGE: python:3.13-slim@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91
   OUTFITTER_ACTION_REF: f73a8f19fe2c2d4c81db85760cad7f4747672814
   PI_TELEMETRY: "0"
@@ -120,13 +119,19 @@ jobs:
           PI_CODING_AGENT_DIR: ${{ runner.temp }}/base-pi-agent
           PI_CODING_AGENT_SESSION_DIR: ${{ runner.temp }}/agent-sessions-${{ matrix.harness }}
         run: |
-          npm install --global "@earendil-works/pi-coding-agent@$PI_VERSION"
+          # Install the same Outfitter package as the comparison cell, then run
+          # its exact nested Pi dependency directly. This prevents semver drift
+          # between Outfitter's Pi and a separately pinned base-Pi install.
+          npm install --global "@ai-outfitter/outfitter@$OUTFITTER_VERSION"
+          NPM_ROOT="$(npm root --global)"
+          pi_cli="$NPM_ROOT/@ai-outfitter/outfitter/node_modules/@earendil-works/pi-coding-agent/dist/cli.js"
+          test -f "$pi_cli"
           mkdir -p "$PI_CODING_AGENT_DIR"
           cp "$HARNESS_ROOT/models.json" "$PI_CODING_AGENT_DIR/models.json"
           set +e
           (
             cd "$WORKTREE"
-            pi \
+            node "$pi_cli" \
               --provider "$PROVIDER" \
               --model "$MODEL" \
               --tools read,bash,edit,write,grep,find,ls \
@@ -161,9 +166,7 @@ jobs:
           process.stdout.write(JSON.stringify({
             node: process.version,
             outfitter: readVersion("@ai-outfitter", "outfitter"),
-            pi: harness === "outfitter-pi"
-              ? readVersion("@ai-outfitter", "outfitter", "node_modules", "@earendil-works", "pi-coding-agent")
-              : readVersion("@earendil-works", "pi-coding-agent"),
+            pi: readVersion("@ai-outfitter", "outfitter", "node_modules", "@earendil-works", "pi-coding-agent"),
             harness,
           }, null, 2) + "\n");
           NODE

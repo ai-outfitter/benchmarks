@@ -4,7 +4,7 @@
 
 Each matrix cell is identified by harness, task, repetition, model, and profile. Shell-capable agent jobs run in isolated worktrees with read-only source/model permissions and upload candidate patches. Separate scoring jobs start from a fresh checkout, apply candidates, and execute the clean evaluator in a digest-pinned, networkless, capability-dropped, read-only container without model or attestation credentials. A third job validates inert score archives before receiving OIDC/attestation authority.
 
-The initial matrix is serial (`max-parallel: 1`) because free GitHub Models quotas are low enough that concurrent agent loops can turn rate-limit failures into apparent harness differences.
+The initial matrix is serial (`max-parallel: 1`) because free GitHub Models quotas are low enough that concurrent agent loops can turn rate-limit failures into apparent harness differences. Both variants install the same pinned Outfitter package; the base cell directly executes that installation's nested Pi dependency, and reduction rejects any observed Pi-version mismatch.
 
 ## Reduce
 
