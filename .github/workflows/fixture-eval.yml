@@ -15,8 +15,9 @@ concurrency:
 
 env:
   HARNESS_ROOT: ${{ github.workspace }}
-  MODEL: openai/gpt-4.1-mini
-  PROVIDER: github-models
+  MODEL: gpt-4.1-mini
+  PROVIDER: github-models-legacy
+  MODEL_ENDPOINT: https://models.inference.ai.azure.com/chat/completions
   OUTFITTER_VERSION: 0.10.0
   PI_VERSION: 0.80.9
   EVALUATOR_IMAGE: python:3.13-slim@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91
@@ -41,6 +42,8 @@ jobs:
         run: |
           python3 "$HARNESS_ROOT/scripts/smoke_model.py" \
             --model "$MODEL" \
+            --endpoint "$MODEL_ENDPOINT" \
+            --pi-shaped \
             --out preflight/github-models.json
 
       - name: Upload preflight evidence

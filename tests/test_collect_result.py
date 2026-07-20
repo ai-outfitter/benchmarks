@@ -19,15 +19,15 @@ class SessionScanTests(unittest.TestCase):
             records = [
                 {
                     "type": "model_change",
-                    "provider": "github-models",
-                    "modelId": "openai/gpt-4.1-mini",
+                    "provider": "github-models-legacy",
+                    "modelId": "gpt-4.1-mini",
                 },
                 {
                     "type": "message",
                     "message": {
                         "role": "assistant",
-                        "provider": "github-models",
-                        "model": "openai/gpt-4.1-mini",
+                        "provider": "github-models-legacy",
+                        "model": "gpt-4.1-mini",
                         "responseModel": "gpt-4.1-mini-versioned",
                         "usage": {
                             "input": 100,
@@ -44,7 +44,7 @@ class SessionScanTests(unittest.TestCase):
             )
             value = MODULE.scan_sessions(root)
 
-        self.assertEqual(value["models"], ["openai/gpt-4.1-mini"])
+        self.assertEqual(value["models"], ["gpt-4.1-mini"])
         self.assertEqual(value["response_models"], ["gpt-4.1-mini-versioned"])
         self.assertEqual(value["usage"]["input"], 100)
         self.assertEqual(value["usage"]["output"], 20)

@@ -3,8 +3,8 @@ label: Fixture Engineer
 description: Minimal benchmark-fixture profile used only to validate eval plumbing.
 controls:
   pi:
-    provider: github-models
-    model: openai/gpt-4.1-mini
+    provider: github-models-legacy
+    model: gpt-4.1-mini
     args:
       - --tools
       - read,bash,edit,write,grep,find,ls

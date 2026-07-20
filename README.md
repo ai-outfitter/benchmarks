@@ -13,8 +13,8 @@ The initial milestone is deliberately smaller than a leaderboard run: prove that
 
 Both receive:
 
-- GitHub Models provider `github-models`
-- requested model `openai/gpt-4.1-mini`
+- GitHub Models legacy provider `github-models-legacy`
+- requested model `gpt-4.1-mini`
 - the same task repository
 - the same user prompt
 - the same evaluator
@@ -43,9 +43,9 @@ gh attestation verify reduced-report.tar.gz \
 
 Set `commit_report=true` only after the no-commit run and attestation verification succeed. Committed reports land under `reports/evals/<run-id>/`.
 
-### Organization prerequisite
+### Inference authentication modes
 
-GitHub Models must be enabled under the organization's **Settings → Models → Development** policy. A disabled policy returns HTTP 403 even when the workflow declares `models: read`. See [`docs/validation.md`](docs/validation.md).
+The default proof uses GitHub Models' legacy endpoint, `models.inference.ai.azure.com`, with the ephemeral workflow `GITHUB_TOKEN` and `models: read`; it requires no stored model key. The newer organization-aware `models.github.ai` endpoint requires organization Models enablement or an explicitly supplied key. See [`docs/validation.md`](docs/validation.md).
 
 ## Development
 
