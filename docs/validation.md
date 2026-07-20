@@ -11,6 +11,20 @@ The no-secret proof now targets the legacy GitHub Models endpoint:
 
 A local authenticated Pi-shaped streaming/tool request returned HTTP 200, issued the expected tool call, and resolved the model to `gpt-4.1-mini-2025-04-14`. A real base-Pi fixture run through this provider also exited successfully, passed all five evaluator tests, and recorded the same resolved model. The newer `models.github.ai` path remains an optional future mode requiring organization enablement or an explicit key.
 
+## Run 29785470056 — valid report, incomplete committed subject
+
+Hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29785470056>
+
+All jobs, including publication, completed successfully and both cells produced valid passing fixture results with matching Pi/model evidence. The publisher verified and extracted the attested report archive before committing. However, the repository's `*.tar.gz` ignore rule prevented the copied attested subject from entering the commit, leaving only extracted files and the Sigstore bundle.
+
+The report path is now explicitly unignored, and the local check suite fails if `reports/evals/*/report.tar.gz` is ignored. A final publication run must prove the committed tar verifies independently.
+
+## Run 29785326265 — valid independently verified report
+
+Hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29785326265>
+
+Both harness cells passed the five-test fixture with no infrastructure errors, matching Pi `0.80.10`, provider `github-models-legacy`, and resolved model `gpt-4.1-mini-2025-04-14`. The reduced report attestation independently verified, including both input cell digests and the explicit no-performance-claim boundary.
+
 ## Run 29785085292 — complete provenance path, invalid handoff result
 
 Hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29785085292>
