@@ -43,6 +43,10 @@ gh attestation verify reduced-report.tar.gz \
 
 Set `commit_report=true` only after the no-commit run and attestation verification succeed. Committed reports land under `reports/evals/<run-id>/`.
 
+### Organization prerequisite
+
+GitHub Models must be enabled under the organization's **Settings → Models → Development** policy. A disabled policy returns HTTP 403 even when the workflow declares `models: read`. See [`docs/validation.md`](docs/validation.md).
+
 ## Development
 
 Use the Nix development shell:
