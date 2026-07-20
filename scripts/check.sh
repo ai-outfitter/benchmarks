@@ -21,8 +21,8 @@ python3 scripts/collect_result.py \
   --harness base-pi \
   --agent-status success \
   --task-id task-001 \
-  --model openai/gpt-4.1-mini \
-  --provider github-models \
+  --model gpt-4.1-mini \
+  --provider github-models-legacy \
   --profile base \
   --runtime-metadata "$tmp/runtime.json" \
   >/dev/null
@@ -39,8 +39,8 @@ python3 scripts/validate_bundle.py \
   --extract-to "$tmp/validated" \
   --cell-id base-pi-task-001-r1 \
   --harness base-pi \
-  --model openai/gpt-4.1-mini \
-  --provider github-models \
+  --model gpt-4.1-mini \
+  --provider github-models-legacy \
   --source-sha local \
   >/dev/null
 
