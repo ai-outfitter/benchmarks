@@ -5,3 +5,4 @@ __pycache__/
 downloaded-results/
 reduced-report/
 *.tar.gz
+!reports/evals/**/report.tar.gz

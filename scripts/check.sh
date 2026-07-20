@@ -9,6 +9,11 @@ bash -n scripts/*.sh
 actionlint .github/workflows/*.yml
 python3 -m unittest discover -s tests -v
 
+if git check-ignore --no-index -q reports/evals/test/report.tar.gz; then
+  echo "committed report subjects must not be ignored" >&2
+  exit 1
+fi
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"; find "$root" -type d -name __pycache__ -prune -exec rm -rf {} +' EXIT
 
