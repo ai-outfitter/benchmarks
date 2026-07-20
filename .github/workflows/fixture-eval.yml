@@ -205,7 +205,7 @@ jobs:
           jq -n \
             --arg agent_status "$AGENT_STATUS" \
             --arg infrastructure_error "$infrastructure_error" \
-            '{agent_status: $agent_status, infrastructure_error: ($infrastructure_error | select(length > 0))}' \
+            '{agent_status: $agent_status, infrastructure_error: (if ($infrastructure_error | length) > 0 then $infrastructure_error else null end)}' \
             > candidate/execution.json
           if [[ -d "$SESSION_ROOT" ]]; then
             cp -a "$SESSION_ROOT" candidate/sessions
@@ -258,7 +258,8 @@ jobs:
             "$HARNESS_ROOT/fixtures/task-001/repo" \
             "$WORKTREE"
           infrastructure_error="$(jq -r '.infrastructure_error // empty' candidate/execution.json)"
-          if [[ -s candidate/patch.diff ]] && ! git -C "$WORKTREE" apply --binary candidate/patch.diff; then
+          patch_file="$GITHUB_WORKSPACE/candidate/patch.diff"
+          if [[ -s "$patch_file" ]] && ! git -C "$WORKTREE" apply --binary "$patch_file"; then
             infrastructure_error="candidate_patch_apply_failed"
           fi
           echo "infrastructure_error=$infrastructure_error" >> "$GITHUB_OUTPUT"

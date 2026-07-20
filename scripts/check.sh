@@ -13,6 +13,18 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"; find "$root" -type d -name __pycache__ -prune -exec rm -rf {} +' EXIT
 
 scripts/prepare_fixture.sh fixtures/task-001/repo "$tmp/worktree"
+mkdir -p "$tmp/candidate"
+jq -n --arg agent_status success --arg infrastructure_error "" \
+  '{agent_status: $agent_status, infrastructure_error: (if ($infrastructure_error | length) > 0 then $infrastructure_error else null end)}' \
+  > "$tmp/candidate/execution.json"
+test "$(jq -r .agent_status "$tmp/candidate/execution.json")" = success
+printf '\n# handoff check\n' >> "$tmp/worktree/calculator.py"
+git -C "$tmp/worktree" diff --binary HEAD -- > "$tmp/candidate/patch.diff"
+scripts/prepare_fixture.sh fixtures/task-001/repo "$tmp/score-worktree"
+git -C "$tmp/score-worktree" apply --binary "$tmp/candidate/patch.diff"
+grep -q 'handoff check' "$tmp/score-worktree/calculator.py"
+# Restore the baseline fixture for the collector's expected failing result.
+scripts/prepare_fixture.sh fixtures/task-001/repo "$tmp/worktree"
 printf '{"node":"test","outfitter":null,"pi":"test","harness":"base-pi"}\n' > "$tmp/runtime.json"
 python3 scripts/collect_result.py \
   --worktree "$tmp/worktree" \
