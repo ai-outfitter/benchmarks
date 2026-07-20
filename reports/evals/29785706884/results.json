@@ -1,0 +1,185 @@
+{
+  "cell_count": 2,
+  "claim_boundary": "This fixture validates orchestration and provenance only; it does not measure scaffold superiority.",
+  "experiment_kind": "infrastructure-fixture",
+  "generated_at": "2026-07-20T23:00:29.029608+00:00",
+  "input_subjects": [
+    {
+      "digest": "sha256:981ac66ec6d181dd033299c4e750041eafc484ade3dc2055d507a96252c4eb75",
+      "name": "result-base-pi.tar.gz"
+    },
+    {
+      "digest": "sha256:a6660babb5b0bbf1043fb9262731f62195d40c60027ad629b0b5f52b07876ccf",
+      "name": "result-outfitter-pi.tar.gz"
+    }
+  ],
+  "results": [
+    {
+      "cell_id": "base-pi-task-001-r1",
+      "execution": {
+        "agent_status": "success",
+        "infrastructure_error": null,
+        "runtime": {
+          "evaluator_image": [
+            "python@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91"
+          ],
+          "harness": "base-pi",
+          "node": "v22.19.0",
+          "outfitter": "0.10.0",
+          "pi": "0.80.10"
+        },
+        "session": {
+          "jsonl_files": 1,
+          "models": [
+            "gpt-4.1-mini"
+          ],
+          "providers": [
+            "github-models-legacy"
+          ],
+          "response_models": [
+            "gpt-4.1-mini-2025-04-14"
+          ],
+          "usage": {
+            "cache_read": 10368,
+            "cache_write": 0,
+            "cost": 0.0,
+            "input": 755,
+            "output": 562
+          }
+        }
+      },
+      "experiment": {
+        "kind": "infrastructure-fixture",
+        "repetition": 1,
+        "task_id": "task-001"
+      },
+      "outcome": {
+        "failure_class": "none",
+        "score": 1,
+        "status": "pass",
+        "test_exit_code": 0,
+        "tests_run": 5
+      },
+      "run": {
+        "collected_at": "2026-07-20T23:00:00.543662+00:00",
+        "repository": "ai-outfitter/benchmarks",
+        "source_sha": "e56134b9e5b98f3d8a3fba01fc849410cb9b5332",
+        "workflow_run_attempt": "1",
+        "workflow_run_id": "29785706884"
+      },
+      "schema_version": 1,
+      "variant": {
+        "action_ref": "f73a8f19fe2c2d4c81db85760cad7f4747672814",
+        "harness": "base-pi",
+        "outfitter_version": "0.10.0",
+        "pi_version": "0.80.10",
+        "profile": "base",
+        "profile_ref": "e56134b9e5b98f3d8a3fba01fc849410cb9b5332",
+        "provider": "github-models-legacy",
+        "requested_model": "gpt-4.1-mini",
+        "tools": [
+          "read",
+          "bash",
+          "edit",
+          "write",
+          "grep",
+          "find",
+          "ls"
+        ]
+      }
+    },
+    {
+      "cell_id": "outfitter-pi-task-001-r1",
+      "execution": {
+        "agent_status": "success",
+        "infrastructure_error": null,
+        "runtime": {
+          "evaluator_image": [
+            "python@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91"
+          ],
+          "harness": "outfitter-pi",
+          "node": "v22.19.0",
+          "outfitter": "0.10.0",
+          "pi": "0.80.10"
+        },
+        "session": {
+          "jsonl_files": 1,
+          "models": [
+            "gpt-4.1-mini"
+          ],
+          "providers": [
+            "github-models-legacy"
+          ],
+          "response_models": [
+            "gpt-4.1-mini-2025-04-14"
+          ],
+          "usage": {
+            "cache_read": 7808,
+            "cache_write": 0,
+            "cost": 0.0,
+            "input": 4625,
+            "output": 444
+          }
+        }
+      },
+      "experiment": {
+        "kind": "infrastructure-fixture",
+        "repetition": 1,
+        "task_id": "task-001"
+      },
+      "outcome": {
+        "failure_class": "none",
+        "score": 1,
+        "status": "pass",
+        "test_exit_code": 0,
+        "tests_run": 5
+      },
+      "run": {
+        "collected_at": "2026-07-20T23:00:02.055972+00:00",
+        "repository": "ai-outfitter/benchmarks",
+        "source_sha": "e56134b9e5b98f3d8a3fba01fc849410cb9b5332",
+        "workflow_run_attempt": "1",
+        "workflow_run_id": "29785706884"
+      },
+      "schema_version": 1,
+      "variant": {
+        "action_ref": "f73a8f19fe2c2d4c81db85760cad7f4747672814",
+        "harness": "outfitter-pi",
+        "outfitter_version": "0.10.0",
+        "pi_version": "0.80.10",
+        "profile": "fixture-engineer",
+        "profile_ref": "e56134b9e5b98f3d8a3fba01fc849410cb9b5332",
+        "provider": "github-models-legacy",
+        "requested_model": "gpt-4.1-mini",
+        "tools": [
+          "read",
+          "bash",
+          "edit",
+          "write",
+          "grep",
+          "find",
+          "ls"
+        ]
+      }
+    }
+  ],
+  "schema_version": 1,
+  "variants": {
+    "base-pi": {
+      "failed": 0,
+      "invalid": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "total": 1,
+      "valid": 1
+    },
+    "outfitter-pi": {
+      "failed": 0,
+      "invalid": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "total": 1,
+      "valid": 1
+    }
+  }
+}

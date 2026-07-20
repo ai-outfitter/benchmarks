@@ -1,0 +1,34 @@
+{
+  "cellCount": 2,
+  "claimBoundary": "This fixture validates orchestration and provenance only; it does not measure scaffold superiority.",
+  "experimentKind": "infrastructure-fixture",
+  "inputSubjects": [
+    {
+      "digest": "sha256:981ac66ec6d181dd033299c4e750041eafc484ade3dc2055d507a96252c4eb75",
+      "name": "result-base-pi.tar.gz"
+    },
+    {
+      "digest": "sha256:a6660babb5b0bbf1043fb9262731f62195d40c60027ad629b0b5f52b07876ccf",
+      "name": "result-outfitter-pi.tar.gz"
+    }
+  ],
+  "schemaVersion": 1,
+  "variants": {
+    "base-pi": {
+      "failed": 0,
+      "invalid": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "total": 1,
+      "valid": 1
+    },
+    "outfitter-pi": {
+      "failed": 0,
+      "invalid": 0,
+      "pass_rate": 1.0,
+      "passed": 1,
+      "total": 1,
+      "valid": 1
+    }
+  }
+}
