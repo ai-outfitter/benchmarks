@@ -1,0 +1,14 @@
+id: fixture-engineer
+label: Fixture Engineer
+description: Minimal benchmark-fixture profile used only to validate eval plumbing.
+controls:
+  pi:
+    provider: github-models
+    model: openai/gpt-4.1-mini
+    args:
+      - --tools
+      - read,bash,edit,write,grep,find,ls
+  append_system_prompt: |
+    Work as a careful software engineer. Read the repository requirements before editing.
+    Make the smallest correct change, run the supplied tests, and leave the working tree
+    ready for review. Do not claim success unless the tests pass.

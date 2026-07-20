@@ -1,0 +1,7 @@
+.direnv/
+__pycache__/
+*.pyc
+.result/
+downloaded-results/
+reduced-report/
+*.tar.gz

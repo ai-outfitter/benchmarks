@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-outfitter.dev/schemas/benchmark-result/v1",
+  "title": "Agent benchmark matrix cell result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cell_id",
+    "run",
+    "experiment",
+    "variant",
+    "execution",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "cell_id": { "type": "string", "minLength": 1 },
+    "run": {
+      "type": "object",
+      "required": [
+        "repository",
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "source_sha",
+        "collected_at"
+      ],
+      "properties": {
+        "repository": { "type": "string" },
+        "workflow_run_id": { "type": "string" },
+        "workflow_run_attempt": { "type": "string" },
+        "source_sha": { "type": "string" },
+        "collected_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "experiment": {
+      "type": "object",
+      "required": ["kind", "task_id", "repetition"],
+      "properties": {
+        "kind": { "const": "infrastructure-fixture" },
+        "task_id": { "type": "string" },
+        "repetition": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "variant": {
+      "type": "object",
+      "required": [
+        "harness",
+        "profile",
+        "profile_ref",
+        "action_ref",
+        "provider",
+        "requested_model",
+        "outfitter_version",
+        "pi_version",
+        "tools"
+      ],
+      "properties": {
+        "harness": { "enum": ["outfitter-pi", "base-pi", "codex-style"] },
+        "profile": { "type": "string" },
+        "profile_ref": { "type": ["string", "null"] },
+        "action_ref": { "type": ["string", "null"] },
+        "provider": { "type": "string" },
+        "requested_model": { "type": "string" },
+        "outfitter_version": { "type": ["string", "null"] },
+        "pi_version": { "type": ["string", "null"] },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "required": ["agent_status", "infrastructure_error", "runtime", "session"],
+      "properties": {
+        "agent_status": { "enum": ["success", "failure", "cancelled", "skipped"] },
+        "infrastructure_error": { "type": ["string", "null"] },
+        "runtime": { "type": "object" },
+        "session": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["status", "failure_class", "score", "test_exit_code", "tests_run"],
+      "properties": {
+        "status": { "enum": ["pass", "fail", "invalid"] },
+        "failure_class": { "enum": ["none", "benchmark", "agent_execution", "infrastructure"] },
+        "score": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "test_exit_code": { "type": "integer" },
+        "tests_run": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

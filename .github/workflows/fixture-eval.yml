@@ -1,0 +1,527 @@
+name: Attested agent benchmark infrastructure fixture
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_report:
+        description: Commit the verified report under reports/evals/<run-id>
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: attested-agent-fixture-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HARNESS_ROOT: ${{ github.workspace }}
+  MODEL: openai/gpt-4.1-mini
+  PROVIDER: github-models
+  OUTFITTER_VERSION: 0.10.0
+  PI_VERSION: 0.80.9
+  EVALUATOR_IMAGE: python:3.13-slim@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91
+  OUTFITTER_ACTION_REF: f73a8f19fe2c2d4c81db85760cad7f4747672814
+  PI_TELEMETRY: "0"
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      models: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Prove GitHub Models authentication and capture resolved model
+        id: smoke
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 "$HARNESS_ROOT/scripts/smoke_model.py" \
+            --model "$MODEL" \
+            --out preflight/github-models.json
+
+      - name: Upload preflight evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: preflight-${{ github.run_id }}
+          path: preflight/
+
+      - name: Enforce successful inference preflight
+        if: steps.smoke.outcome != 'success'
+        run: exit 1
+
+  agent:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # The shell-capable agent gets model access and read-only source access,
+      # but cannot mint OIDC tokens, attest artifacts, or write repository data.
+      contents: read
+      models: read
+    strategy:
+      fail-fast: false
+      # Free GitHub Models quotas are low enough that parallel agent loops can
+      # turn quota errors into an apparent harness difference.
+      max-parallel: 1
+      matrix:
+        include:
+          - harness: outfitter-pi
+            profile: fixture-engineer
+          - harness: base-pi
+            profile: base
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.19.0"
+
+      - name: Prepare isolated fixture repository
+        run: |
+          "$HARNESS_ROOT/scripts/prepare_fixture.sh" \
+            "$HARNESS_ROOT/fixtures/task-001/repo" \
+            "$RUNNER_TEMP/task-001-${{ matrix.harness }}"
+          mkdir -p "$HOME/.pi/agent" logs
+          cp "$HARNESS_ROOT/models.json" "$HOME/.pi/agent/models.json"
+
+      - name: Run Outfitter + Pi cell
+        id: outfitter
+        if: matrix.harness == 'outfitter-pi'
+        continue-on-error: true
+        env:
+          PI_CODING_AGENT_SESSION_DIR: ${{ runner.temp }}/agent-sessions-${{ matrix.harness }}
+        uses: ai-outfitter/actions@f73a8f19fe2c2d4c81db85760cad7f4747672814 # v1.0.0
+        with:
+          profile: ${{ matrix.profile }}
+          profile-source: ${{ github.workspace }}/profiles
+          working-directory: ${{ runner.temp }}/task-001-${{ matrix.harness }}
+          outfitter-version: ${{ env.OUTFITTER_VERSION }}
+          prompt: >-
+            Repair this repository according to README.md. Inspect the code,
+            implement the smallest correct fix, run the public tests, and leave
+            the working tree containing the solution.
+
+      - name: Run base Pi cell
+        id: base
+        if: matrix.harness == 'base-pi'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          WORKTREE: ${{ runner.temp }}/task-001-${{ matrix.harness }}
+          # Prevent a self-hosted runner's inherited state from silently changing
+          # provider/model resolution.
+          PI_CODING_AGENT_DIR: ${{ runner.temp }}/base-pi-agent
+          PI_CODING_AGENT_SESSION_DIR: ${{ runner.temp }}/agent-sessions-${{ matrix.harness }}
+        run: |
+          npm install --global "@earendil-works/pi-coding-agent@$PI_VERSION"
+          mkdir -p "$PI_CODING_AGENT_DIR"
+          cp "$HARNESS_ROOT/models.json" "$PI_CODING_AGENT_DIR/models.json"
+          set +e
+          (
+            cd "$WORKTREE"
+            pi \
+              --provider "$PROVIDER" \
+              --model "$MODEL" \
+              --tools read,bash,edit,write,grep,find,ls \
+              -p \
+              "Repair this repository according to README.md. Inspect the code, implement the smallest correct fix, run the public tests, and leave the working tree containing the solution."
+          ) >logs/base-pi.stdout.log 2>logs/base-pi.stderr.log
+          code=$?
+          set -e
+          if [[ $code -eq 0 ]]; then
+            echo "agent_status=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "agent_status=failure" >> "$GITHUB_OUTPUT"
+          fi
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Capture installed runtime versions
+        if: always()
+        env:
+          HARNESS: ${{ matrix.harness }}
+        run: |
+          NPM_ROOT="$(npm root --global)"
+          export NPM_ROOT
+          node <<'NODE' > runtime-versions.json
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const root = process.env.NPM_ROOT;
+          const harness = process.env.HARNESS;
+          const readVersion = (...parts) => {
+            const file = path.join(root, ...parts, "package.json");
+            return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file)).version : null;
+          };
+          process.stdout.write(JSON.stringify({
+            node: process.version,
+            outfitter: readVersion("@ai-outfitter", "outfitter"),
+            pi: harness === "outfitter-pi"
+              ? readVersion("@ai-outfitter", "outfitter", "node_modules", "@earendil-works", "pi-coding-agent")
+              : readVersion("@earendil-works", "pi-coding-agent"),
+            harness,
+          }, null, 2) + "\n");
+          NODE
+          jq . runtime-versions.json
+
+      - name: Resolve agent execution status
+        id: status
+        if: always()
+        env:
+          HARNESS: ${{ matrix.harness }}
+          OUTFITTER_OUTCOME: ${{ steps.outfitter.outcome }}
+          BASE_STATUS: ${{ steps.base.outputs.agent_status }}
+        run: |
+          if [[ "$HARNESS" == "outfitter-pi" ]]; then
+            echo "agent_status=${OUTFITTER_OUTCOME:-failure}" >> "$GITHUB_OUTPUT"
+          else
+            echo "agent_status=${BASE_STATUS:-failure}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Capture candidate patch and agent evidence
+        if: always()
+        env:
+          WORKTREE: ${{ runner.temp }}/task-001-${{ matrix.harness }}
+          SESSION_ROOT: ${{ runner.temp }}/agent-sessions-${{ matrix.harness }}
+          AGENT_STATUS: ${{ steps.status.outputs.agent_status }}
+        run: |
+          mkdir -p candidate
+          infrastructure_error=""
+          if ! git -C "$WORKTREE" add -N .; then
+            infrastructure_error="candidate_git_add_failed"
+          fi
+          if ! git -C "$WORKTREE" diff --binary HEAD -- > candidate/patch.diff; then
+            infrastructure_error="candidate_patch_capture_failed"
+          fi
+          cp runtime-versions.json candidate/runtime-versions.json
+          jq -n \
+            --arg agent_status "$AGENT_STATUS" \
+            --arg infrastructure_error "$infrastructure_error" \
+            '{agent_status: $agent_status, infrastructure_error: ($infrastructure_error | select(length > 0))}' \
+            > candidate/execution.json
+          if [[ -d "$SESSION_ROOT" ]]; then
+            cp -a "$SESSION_ROOT" candidate/sessions
+          fi
+          if [[ -d logs ]]; then
+            cp -a logs candidate/runner-logs
+          fi
+
+      - name: Upload candidate for clean scoring
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: candidate-${{ matrix.harness }}-task-001-r1
+          path: candidate/
+          if-no-files-found: error
+
+  score:
+    needs: agent
+    if: needs.agent.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Scoring executes candidate code in a networkless container and has no
+      # model, OIDC, attestation, or repository-write authority.
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - harness: outfitter-pi
+            profile: fixture-engineer
+          - harness: base-pi
+            profile: base
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Download candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: candidate-${{ matrix.harness }}-task-001-r1
+          path: candidate
+
+      - name: Prepare clean evaluator worktree and apply candidate
+        id: apply
+        env:
+          WORKTREE: ${{ runner.temp }}/score-task-001-${{ matrix.harness }}
+        run: |
+          "$HARNESS_ROOT/scripts/prepare_fixture.sh" \
+            "$HARNESS_ROOT/fixtures/task-001/repo" \
+            "$WORKTREE"
+          infrastructure_error="$(jq -r '.infrastructure_error // empty' candidate/execution.json)"
+          if [[ -s candidate/patch.diff ]] && ! git -C "$WORKTREE" apply --binary candidate/patch.diff; then
+            infrastructure_error="candidate_patch_apply_failed"
+          fi
+          echo "infrastructure_error=$infrastructure_error" >> "$GITHUB_OUTPUT"
+
+      - name: Evaluate candidate in a credentialless networkless container
+        id: evaluate
+        env:
+          WORKTREE: ${{ runner.temp }}/score-task-001-${{ matrix.harness }}
+        run: |
+          image="$EVALUATOR_IMAGE"
+          docker pull "$image"
+          docker image inspect "$image" --format '{{json .RepoDigests}}' > evaluator-image.json
+          set +e
+          docker run --rm \
+            --network none \
+            --read-only \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --pids-limit 128 \
+            --memory 512m \
+            --cpus 1 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            --mount "type=bind,src=$WORKTREE,dst=/workspace,readonly" \
+            --mount "type=bind,src=$HARNESS_ROOT/fixtures/task-001/evaluator,dst=/evaluator,readonly" \
+            --workdir /workspace \
+            "$image" python /evaluator/evaluate.py --repo /workspace \
+            > evaluator.log 2>&1
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Normalize inert scoring result
+        env:
+          WORKTREE: ${{ runner.temp }}/score-task-001-${{ matrix.harness }}
+          INFRASTRUCTURE_ERROR: ${{ steps.apply.outputs.infrastructure_error }}
+          TEST_EXIT_CODE: ${{ steps.evaluate.outputs.exit_code }}
+        run: |
+          agent_status="$(jq -r .agent_status candidate/execution.json)"
+          outfitter_version="$(jq -r '.outfitter // empty' candidate/runtime-versions.json)"
+          pi_version="$(jq -r '.pi // empty' candidate/runtime-versions.json)"
+          jq --slurpfile image evaluator-image.json '. + {evaluator_image: $image[0]}' \
+            candidate/runtime-versions.json > scored-runtime.json
+          python3 "$HARNESS_ROOT/scripts/collect_result.py" \
+            --worktree "$WORKTREE" \
+            --test-log evaluator.log \
+            --test-exit-code "$TEST_EXIT_CODE" \
+            --out result \
+            --harness "${{ matrix.harness }}" \
+            --agent-status "$agent_status" \
+            --infrastructure-error "$INFRASTRUCTURE_ERROR" \
+            --task-id task-001 \
+            --model "$MODEL" \
+            --provider "$PROVIDER" \
+            --profile "${{ matrix.profile }}" \
+            --profile-ref "$GITHUB_SHA" \
+            --action-ref "$OUTFITTER_ACTION_REF" \
+            --outfitter-version "$outfitter_version" \
+            --pi-version "$pi_version" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$GITHUB_SHA" \
+            --session-root candidate/sessions \
+            --runtime-metadata scored-runtime.json
+
+      - name: Build metadata-normalized cell package
+        run: |
+          tar --sort=name --mtime='UTC 1970-01-01' \
+            --owner=0 --group=0 --numeric-owner \
+            -C result -cf - . | gzip -n > "result-${{ matrix.harness }}.tar.gz"
+
+      - name: Upload inert scored bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scored-${{ matrix.harness }}-task-001-r1
+          path: result-${{ matrix.harness }}.tar.gz
+          if-no-files-found: error
+
+  attest:
+    needs: score
+    if: needs.score.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # This job handles inert archives only; no candidate code is executed.
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - harness: outfitter-pi
+            cell_id: outfitter-pi-task-001-r1
+          - harness: base-pi
+            cell_id: base-pi-task-001-r1
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Download inert scored bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: scored-${{ matrix.harness }}-task-001-r1
+          path: scored
+
+      - name: Validate archive integrity and bound identity
+        run: |
+          python3 "$HARNESS_ROOT/scripts/validate_bundle.py" \
+            --bundle "scored/result-${{ matrix.harness }}.tar.gz" \
+            --extract-to validated-result \
+            --cell-id "${{ matrix.cell_id }}" \
+            --harness "${{ matrix.harness }}" \
+            --model "$MODEL" \
+            --provider "$PROVIDER" \
+            --source-sha "$GITHUB_SHA"
+
+      - name: Attest validated cell result
+        id: attest
+        continue-on-error: true
+        uses: actions/attest@36051bcae73b7c2a8a6945a48cbf80953c6baa35 # v4
+        with:
+          subject-path: scored/result-${{ matrix.harness }}.tar.gz
+          predicate-type: https://ai-outfitter.dev/attestations/benchmark-result/v1
+          predicate-path: validated-result/attestation-predicate.json
+
+      - name: Preserve cell attestation
+        if: always() && steps.attest.outputs.bundle-path != ''
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: cp "$BUNDLE_PATH" attestation.sigstore.json
+
+      - name: Upload attested cell bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: result-${{ matrix.harness }}-task-001-r1
+          path: |
+            scored/result-${{ matrix.harness }}.tar.gz
+            attestation.sigstore.json
+          if-no-files-found: warn
+
+      - name: Enforce successful cell attestation
+        if: always() && steps.attest.outcome != 'success'
+        run: exit 1
+
+  reduce:
+    needs: attest
+    if: needs.attest.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Download all attested cell bundles
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: result-*
+          path: downloaded-results
+
+      - name: Verify and extract every cell bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p verified-results verification input-subjects
+          count=0
+          while IFS= read -r bundle; do
+            count=$((count + 1))
+            name="$(basename "$bundle" .tar.gz)"
+            gh attestation verify "$bundle" \
+              --repo "$GITHUB_REPOSITORY" \
+              --predicate-type https://ai-outfitter.dev/attestations/benchmark-result/v1 \
+              > "verification/$name.txt"
+            mkdir -p "verified-results/$name"
+            tar -xzf "$bundle" -C "verified-results/$name"
+            digest="$(sha256sum "$bundle" | cut -d ' ' -f 1)"
+            jq -n --arg name "$(basename "$bundle")" --arg digest "sha256:$digest" \
+              '{name: $name, digest: $digest}' > "input-subjects/$count.json"
+          done < <(find downloaded-results -type f -name 'result-*.tar.gz' | sort)
+          [[ $count -eq 2 ]] || { echo "expected 2 cell bundles, found $count" >&2; exit 1; }
+          jq -s . input-subjects/*.json > input-subjects.json
+
+      - name: Reduce verified results and enforce parity
+        id: reduce
+        run: |
+          python3 "$HARNESS_ROOT/scripts/reduce_results.py" \
+            verified-results reduced-report \
+            --expected-cell outfitter-pi-task-001-r1 \
+            --expected-cell base-pi-task-001-r1 \
+            --require-parity \
+            --input-manifest input-subjects.json
+          cp -a verification reduced-report/verification
+          tar --sort=name --mtime='UTC 1970-01-01' \
+            --owner=0 --group=0 --numeric-owner \
+            -C reduced-report -cf - . | gzip -n > reduced-report.tar.gz
+
+      - name: Attest reduced report
+        id: attest
+        continue-on-error: true
+        uses: actions/attest@36051bcae73b7c2a8a6945a48cbf80953c6baa35 # v4
+        with:
+          subject-path: reduced-report.tar.gz
+          predicate-type: https://ai-outfitter.dev/attestations/benchmark-report/v1
+          predicate-path: reduced-report/attestation-predicate.json
+
+      - name: Preserve reduced-report attestation
+        if: always() && steps.attest.outputs.bundle-path != ''
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: cp "$BUNDLE_PATH" reduced-report/attestation.sigstore.json
+
+      - name: Upload reduced report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: report-${{ github.run_id }}
+          path: |
+            reduced-report/
+            reduced-report.tar.gz
+
+      - name: Enforce successful report attestation
+        if: always() && steps.attest.outcome != 'success'
+        run: exit 1
+
+  publish:
+    needs: reduce
+    if: >-
+      inputs.commit_report &&
+      needs.reduce.result == 'success' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Download verified reduced report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: report-${{ github.run_id }}
+          path: downloaded-report
+
+      - name: Verify and extract report subject before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh attestation verify downloaded-report/reduced-report.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --predicate-type https://ai-outfitter.dev/attestations/benchmark-report/v1
+          mkdir verified-report
+          tar -xzf downloaded-report/reduced-report.tar.gz -C verified-report
+
+      - name: Commit verified report subject
+        run: |
+          destination="reports/evals/$GITHUB_RUN_ID"
+          mkdir -p "$destination"
+          cp verified-report/report.md "$destination/README.md"
+          cp verified-report/results.json "$destination/results.json"
+          cp verified-report/attestation-predicate.json "$destination/attestation-predicate.json"
+          cp downloaded-report/reduced-report.tar.gz "$destination/report.tar.gz"
+          cp downloaded-report/reduced-report/attestation.sigstore.json "$destination/attestation.sigstore.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$destination"
+          git diff --cached --quiet && exit 0
+          git commit -m "chore(evals): add fixture report $GITHUB_RUN_ID [skip ci]"
+          git push origin HEAD:main
