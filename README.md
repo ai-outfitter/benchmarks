@@ -76,6 +76,18 @@ reports/evals/                      Optional committed run reports
 docs/                               Design, security, and portability notes
 ```
 
+## Validated proof
+
+Hosted run [29785706884](https://github.com/ai-outfitter/benchmarks/actions/runs/29785706884) completed the full no-secret legacy path and committed an independently verifiable report at [`reports/evals/29785706884/`](reports/evals/29785706884/).
+
+```bash
+gh attestation verify reports/evals/29785706884/report.tar.gz \
+  --repo ai-outfitter/benchmarks \
+  --predicate-type https://ai-outfitter.dev/attestations/benchmark-report/v1
+```
+
+Both fixture cells passed with matching Pi and resolved-model evidence. This validates infrastructure and provenance only, not profile superiority.
+
 ## Roadmap
 
 1. Validate GitHub-hosted model auth and native attestations.

@@ -11,6 +11,18 @@ The no-secret proof now targets the legacy GitHub Models endpoint:
 
 A local authenticated Pi-shaped streaming/tool request returned HTTP 200, issued the expected tool call, and resolved the model to `gpt-4.1-mini-2025-04-14`. A real base-Pi fixture run through this provider also exited successfully, passed all five evaluator tests, and recorded the same resolved model. The newer `models.github.ai` path remains an optional future mode requiring organization enablement or an explicit key.
 
+## Run 29785706884 — complete committed attested proof
+
+Hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29785706884>
+
+All jobs passed: legacy-token preflight, both agents, sandboxed scoring, inert-bundle validation, both cell attestations, online cell verification, strict parity reduction, reduced-report attestation, independent publisher verification, and report commit.
+
+Committed evidence: [`reports/evals/29785706884/`](../reports/evals/29785706884/).
+
+Independent verification of the committed `report.tar.gz` succeeded. Both valid fixture cells passed all five tests, used Pi `0.80.10`, and recorded resolved model `gpt-4.1-mini-2025-04-14`. The attestation predicate binds both cell archive digests and states the infrastructure-only claim boundary.
+
+Conclusion: the no-secret legacy GitHub Models + GitHub Actions + native attestation + committed reducer-report path is feasible. This does not yet answer whether an Outfitter profile outperforms base Pi.
+
 ## Run 29785470056 — valid report, incomplete committed subject
 
 Hosted run: <https://github.com/ai-outfitter/benchmarks/actions/runs/29785470056>
